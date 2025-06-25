@@ -3,11 +3,13 @@ from collections import Counter
 import spacy
 import subprocess
 
-try:
-    nlp = spacy.load("en_core_web_sm")
-except OSError:
-    subprocess.run(["python", "-m", "spacy", "download", "en_core_web_sm"])
-    nlp = spacy.load("en_core_web_sm")
+# 👇 Safe spaCy model loading inside a function
+def get_nlp():
+    try:
+        return spacy.load("en_core_web_sm")
+    except OSError:
+        subprocess.run(["python", "-m", "spacy", "download", "en_core_web_sm"])
+        return spacy.load("en_core_web_sm")
 
 def clean_text(text):
     text = re.sub(r'\s+', ' ', text)
@@ -15,6 +17,7 @@ def clean_text(text):
     return text.lower()
 
 def extract_keywords(text):
+    nlp = get_nlp()  # 👈 Load spaCy model when needed
     doc = nlp(text)
     keywords = [token.text.lower() for token in doc if token.is_alpha and not token.is_stop]
     return Counter(keywords)
