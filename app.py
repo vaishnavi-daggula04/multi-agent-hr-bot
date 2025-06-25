@@ -1,4 +1,13 @@
 # app.py
+# Force spaCy model download before anything else
+import subprocess
+import spacy
+
+try:
+    spacy.load("en_core_web_sm")
+except OSError:
+    subprocess.run(["python", "-m", "spacy", "download", "en_core_web_sm"])
+
 
 import streamlit as st
 from agents import intake_agent, shortlister_agent
