@@ -1,4 +1,5 @@
 streamlit
 pdfplumber
-gender-guesser
 fpdf
+spacy
+gender-guesser
