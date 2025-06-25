@@ -1,5 +1,8 @@
+# ----------------------------
 # app.py
-# Force spaCy model download before anything else
+# ----------------------------
+
+# 🔧 Force spaCy model download before anything else
 import subprocess
 import spacy
 
@@ -7,8 +10,9 @@ try:
     spacy.load("en_core_web_sm")
 except OSError:
     subprocess.run(["python", "-m", "spacy", "download", "en_core_web_sm"])
+    spacy.load("en_core_web_sm")  # load again after download
 
-
+# 📦 Import other modules
 import streamlit as st
 from agents import intake_agent, shortlister_agent
 from agents import ethics_agent
@@ -16,52 +20,44 @@ from agents import evaluator_agent
 from agents import report_agent
 from agents import interviewer_agent
 
-
-# Set Streamlit page title
+# 🌟 Streamlit page config
 st.set_page_config(page_title="Multi-Agent HR Bot")
-
 st.title("🤖 Multi-Agent Job Candidate Selector")
 st.subheader("Step 1: Upload Resume and Job Description")
 
-# Upload resume file
+# 📄 Upload resume
 resume_file = st.file_uploader("Upload Resume (PDF format)", type=["pdf"])
 
-# Paste job description
+# 📋 Paste job description
 job_description = st.text_area("Paste the Job Description here")
 
-# Only run when both resume and JD are provided
+# Run only when both are provided
 if resume_file and job_description:
-    # Save resume to folder
+    # Save & extract resume text
     file_path = intake_agent.save_resume(resume_file)
-
-    # Extract text from resume PDF
     resume_text = intake_agent.extract_text_from_pdf(file_path)
 
-    # Show preview of resume
+    # 🧾 Resume preview
     st.subheader("📄 Resume Text Preview")
-    st.text(resume_text[:500])  # First 500 characters
+    st.text(resume_text[:500])  # First 500 chars only
 
-    # ------------------------
-    # Shortlisting Agent Logic
-    # ------------------------
+    # -------------------------------------
+    # 🔍 Resume vs Job Description Matching
+    # -------------------------------------
     st.subheader("🔍 Resume vs Job Description Matching")
-
-    # Compare resume and JD
     result = shortlister_agent.compare_resume_to_jd(resume_text, job_description)
 
-    # Match score
     st.write(f"✅ **Match Score**: {result['match_score'] * 100}%")
 
-    # Show matched skills
     with st.expander("✅ Matched Keywords"):
         st.write(", ".join(result['matched_keywords']))
 
-    # Show missing skills
     with st.expander("❌ Missing Keywords"):
         st.write(", ".join(result['missing_keywords']))
-    # ------------------------
-    # Ethics Agent
-    # ------------------------
+
+    # --------------------
+    # 😇 Ethics Agent
+    # --------------------
     st.subheader("😇 Ethics Audit")
 
     candidate_name = st.text_input("Enter Candidate Full Name")
@@ -75,12 +71,12 @@ if resume_file and job_description:
 
         with st.expander("⚠️ Ethics Flags"):
             st.json(ethics_result["ethics_flags"])
-    # ------------------------
-    # Final Evaluator Agent
-    # ------------------------
-    st.subheader("🧮 Final Evaluation & Recommendation")
 
-    if candidate_name:
+        # ----------------------------
+        # 🧮 Final Evaluation & Report
+        # ----------------------------
+        st.subheader("🧮 Final Evaluation & Recommendation")
+
         evaluation_result = evaluator_agent.evaluate_candidate(
             result['match_score'],
             ethics_result['fairness_score'],
@@ -95,6 +91,7 @@ if resume_file and job_description:
             for reason in evaluation_result['explanation']:
                 st.markdown(f"- {reason}")
 
+        # 📥 Downloadable Report
         if st.button("📥 Download Evaluation Report"):
             report_path = report_agent.generate_report(
                 candidate_name,
@@ -110,30 +107,31 @@ if resume_file and job_description:
                     file_name=report_path,
                     mime="application/pdf"
                 )
-    # ------------------------
-    # Interview Agent
-    # ------------------------
-    st.subheader("🗣️ Interview Simulation")
 
-    questions = interviewer_agent.get_questions()
-    answer_scores = {}
+        # ------------------------
+        # 💬 Interview Agent
+        # ------------------------
+        st.subheader("🗣️ Interview Simulation")
 
-    for i, question in enumerate(questions):
-        st.markdown(f"**Q{i+1}: {question}**")
-        answer = st.text_area(f"Your Answer to Q{i+1}", key=f"q{i+1}")
-        if answer:
-            feedback = interviewer_agent.evaluate_answer(answer)
-            st.markdown(f"🧠 Feedback: _{feedback}_")
-            answer_scores[question] = {"answer": answer, "feedback": feedback}
-    # ------------------------
-    # Final Verdict Summary
-    # ------------------------
-    st.markdown("## 🏁 Final Verdict")
+        questions = interviewer_agent.get_questions()
+        answer_scores = {}
 
-    if evaluation_result['decision'] == "✅ Shortlist":
-        st.success(f"🎉 Congratulations, {candidate_name}! You have been **selected** for the job based on your strong match and fair evaluation.")
-    elif evaluation_result['decision'] == "🟡 Review Manually":
-        st.warning(f"⚠️ {candidate_name}, your profile shows potential but needs a **manual review**. Missing skills or gaps were detected.")
-    else:
-        st.error(f"❌ {candidate_name}, thank you for applying. You were **not selected** due to low alignment with the job requirements.")
+        for i, question in enumerate(questions):
+            st.markdown(f"**Q{i+1}: {question}**")
+            answer = st.text_area(f"Your Answer to Q{i+1}", key=f"q{i+1}")
+            if answer:
+                feedback = interviewer_agent.evaluate_answer(answer)
+                st.markdown(f"🧠 Feedback: _{feedback}_")
+                answer_scores[question] = {"answer": answer, "feedback": feedback}
 
+        # ------------------------
+        # 🏁 Final Verdict
+        # ------------------------
+        st.markdown("## 🏁 Final Verdict")
+
+        if evaluation_result['decision'] == "✅ Shortlist":
+            st.success(f"🎉 Congratulations, {candidate_name}! You have been **selected** for the job based on your strong match and fair evaluation.")
+        elif evaluation_result['decision'] == "🟡 Review Manually":
+            st.warning(f"⚠️ {candidate_name}, your profile shows potential but needs a **manual review**. Missing skills or gaps were detected.")
+        else:
+            st.error(f"❌ {candidate_name}, thank you for applying. You were **not selected** due to low alignment with the job requirements.")
